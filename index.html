@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>محرر PDF السريع | حرر ملفات PDF في متصفحك بأمان</title>
+    <meta name="description" content="محرر PDF عربي مجاني يعمل بالكامل داخل متصفحك. أضف نصوصاً عربية ورسوماً على ملفات PDF بأمان تام دون رفع أي ملف لخادم.">
+    <meta name="theme-color" content="#2563eb">
+    <meta property="og:title" content="محرر PDF السريع">
+    <meta property="og:description" content="محرر PDF عربي مجاني يعمل داخل متصفحك - آمن وسريع">
+    <meta property="og:type" content="website">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PDF.js لعرض ملفات PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- pdf-lib لتعديل وإنشاء ملفات PDF -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- إعادة تشكيل الحروف العربية (وصل الحروف) -->
+    <script src="https://cdn.jsdelivr.net/npm/arabic-persian-reshaper@1.0.2/dist/ArabicReshaper.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-main: #f1f5f9;
+            --bg-surface: #ffffff;
+            --border-color: #cbd5e1;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            direction: rtl;
+        }
+
+        .app-header {
+            height: 60px;
+            background: var(--bg-surface);
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 20;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .logo-area { display: flex; align-items: center; gap: 8px; }
+        .logo-icon { font-size: 22px; color: var(--danger); }
+        .logo-area h1 { font-size: 16px; font-weight: 700; }
+
+        .file-actions { display: flex; align-items: center; gap: 8px; }
+
+        .file-name {
+            font-size: 13px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: var(--bg-main);
+            padding: 4px 8px;
+            border-radius: 4px;
+            max-width: 140px;
+            border: 1px solid var(--border-color);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
+        .btn-primary:disabled { background-color: #93c5fd; cursor: not-allowed; }
+        .btn-danger-subtle { background: #fee2e2; color: var(--danger); padding: 6px 10px; }
+
+        .app-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .drop-zone {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-main);
+            z-index: 10;
+            padding: 16px;
+        }
+
+        .drop-zone-content {
+            text-align: center;
+            padding: 30px 20px;
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-surface);
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .upload-icon { font-size: 44px; color: var(--primary-color); margin-bottom: 12px; }
+        .drop-zone h2 { font-size: 18px; margin-bottom: 6px; }
+        .drop-zone p { color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+
+        .workspace {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .main-toolbar {
+            min-height: 56px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            gap: 10px;
+            flex-shrink: 0;
+            z-index: 15;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            flex-wrap: wrap;
+        }
+
+        .tools-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+        .tool-btn {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .tool-btn i { font-size: 15px; color: var(--primary-color); }
+        .tool-btn:hover { background: #eff6ff; border-color: #bfdbfe; }
+        .tool-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .tool-btn.active i { color: white; }
+
+        .tool-options {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+
+        .tool-options input[type="color"] {
+            border: 1px solid var(--border-color);
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .tool-options select {
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: white;
+            font-size: 12px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+
+        .pdf-viewer-area {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            background: white;
+            border-radius: 4px;
+            margin: auto;
+        }
+
+        #pdfCanvas { display: block; }
+
+        .drawing-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .drawing-layer.active-draw {
+            pointer-events: auto;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .overlay-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .overlay-layer.active-text {
+            pointer-events: auto;
+            cursor: text;
+        }
+
+        .draggable-text {
+            position: absolute;
+            cursor: move;
+            border: 1px dashed var(--primary-color);
+            background: rgba(37, 99, 235, 0.05);
+            padding: 4px 8px;
+            user-select: none;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+            min-width: 30px;
+            min-height: 26px;
+        }
+
+        .draggable-text input {
+            background: transparent;
+            border: none;
+            outline: none;
+            width: 100%;
+            font: inherit;
+            color: inherit;
+            direction: rtl;
+            text-align: right;
+            min-width: 60px;
+        }
+
+        .bottom-nav-bar {
+            height: 50px;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            flex-shrink: 0;
+            font-size: 13px;
+            z-index: 10;
+        }
+
+        .nav-group, .zoom-group { display: flex; align-items: center; gap: 8px; }
+
+        .icon-btn {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+
+        .icon-btn:hover { background: #eff6ff; border-color: var(--primary-color); }
+
+        .page-indicator input {
+            width: 45px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px;
+            font-size: 13px;
+        }
+
+        .loader-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            gap: 12px;
+        }
+
+        .loader-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 9999;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,.15);
+            font-size: 14px;
+            max-width: 90%;
+            animation: toastIn 0.25s ease-out;
+        }
+        .toast.error { background: var(--danger); }
+        .toast.success { background: var(--success); }
+        .toast.info { background: var(--primary-color); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        @media (max-width: 640px) {
+            .app-header { padding: 0 10px; }
+            .logo-area h1 { font-size: 14px; }
+            .file-name { max-width: 90px; }
+            .btn { padding: 7px 10px; font-size: 12px; }
+            .btn span { display: none; }
+            .btn i { font-size: 14px; }
+            .main-toolbar { padding: 6px 10px; gap: 6px; }
+            .tool-btn span { display: none; }
+            .tool-btn { padding: 6px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="logo-area">
+            <i class="fa-solid fa-file-pdf logo-icon"></i>
+            <h1>محرر PDF السريع</h1>
+        </div>
+        
+        <div class="file-actions" id="fileActions" style="display: none;">
+            <span id="fileNameDisplay" class="file-name" title=""></span>
+            <button id="closeFileBtn" class="btn btn-danger-subtle" title="إغلاق الملف">
+                <i class="fa-solid fa-xmark"></i><span> إغلاق</span>
+            </button>
+        </div>
+
+        <div class="global-actions">
+            <button id="savePdfBtn" class="btn btn-primary" disabled title="حفظ وتنزيل PDF">
+                <i class="fa-solid fa-download"></i><span> حفظ وتنزيل</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="app-container">
+        
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-zone-content">
+                <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                <h2>اختر ملف PDF أو اسحبه وأفلته هنا</h2>
+                <p>يعمل بالكامل داخل متصفحك بأمان وسرعة عالية</p>
+                <label for="fileInput" class="btn btn-primary" style="padding: 12px 24px; font-size: 15px; cursor: pointer;">
+                    <i class="fa-solid fa-folder-open"></i> تصفح ملفات الجهاز
+                </label>
+                <input type="file" id="fileInput" accept="application/pdf" hidden>
+            </div>
+        </div>
+
+        <div id="workspace" class="workspace" style="display: none;">
+            
+            <div class="main-toolbar" id="mainToolbar">
+                <div class="tools-group">
+                    <button class="tool-btn active" data-tool="select" title="تصفح وتحريك">
+                        <i class="fa-solid fa-hand"></i> <span>تصفح</span>
+                    </button>
+                    <button class="tool-btn" data-tool="text" title="إضافة نص">
+                        <i class="fa-solid fa-font"></i> <span>نص</span>
+                    </button>
+                    <button class="tool-btn" data-tool="draw" title="رسم حر">
+                        <i class="fa-solid fa-pen"></i> <span>رسم</span>
+                    </button>
+                    <button class="tool-btn" data-tool="highlight" title="تظليل">
+                        <i class="fa-solid fa-highlighter"></i> <span>تظليل</span>
+                    </button>
+                </div>
+
+                <div class="tool-options" id="toolOptions">
+                    <div class="option-item" style="display:flex; align-items:center; gap:4px;">
+                        <span>اللون:</span>
+                        <input type="color" id="toolColor" value="#2563eb">
+                    </div>
+                    <div class="option-item" id="fontSizeContainer" style="display:none; align-items:center; gap:4px;">
+                        <span>الحجم:</span>
+                        <select id="fontSize">
+                            <option value="12">12</option>
+                            <option value="16" selected>16</option>
+                            <option value="20">20</option>
+                            <option value="24">24</option>
+                            <option value="32">32</option>
+                        </select>
+                    </div>
+                    <div class="option-item" id="penSizeContainer" style="display: none; align-items:center; gap:4px;">
+                        <span>السماكة:</span>
+                        <select id="penSize">
+                            <option value="2">رفيع</option>
+                            <option value="5" selected>متوسط</option>
+                            <option value="10">سميك</option>
+                        </select>
+                    </div>
+                    <button id="deleteElementBtn" class="icon-btn" title="حذف العنصر المحدد" disabled style="width: 32px; height: 32px; color: var(--danger);">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </div>
+
+            <main class="main-content">
+                <div class="pdf-viewer-area" id="pdfViewerArea">
+                    <div class="canvas-wrapper" id="canvasWrapper">
+                        <canvas id="pdfCanvas"></canvas>
+                        <canvas id="drawingCanvas" class="drawing-layer"></canvas>
+                        <div class="overlay-layer" id="overlayLayer"></div>
+                    </div>
+                </div>
+
+                <div class="bottom-nav-bar">
+                    <div class="nav-group">
+                        <button id="prevPageBtn" class="icon-btn" title="الصفحة السابقة"><i class="fa-solid fa-chevron-right"></i></button>
+                        <span class="page-indicator">
+                            <input type="number" id="pageNumberInput" value="1" min="1"> من <span id="totalPagesDisplay">1</span>
+                        </span>
+                        <button id="nextPageBtn" class="icon-btn" title="الصفحة التالية"><i class="fa-solid fa-chevron-left"></i></button>
+                    </div>
+                    <div class="zoom-group">
+                        <button id="zoomOutBtn" class="icon-btn" title="تصغير"><i class="fa-solid fa-minus"></i></button>
+                        <span id="zoomDisplay" style="font-weight: 500; min-width: 45px; text-align: center;">100%</span>
+                        <button id="zoomInBtn" class="icon-btn" title="تكبير"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="loader" class="loader-overlay" style="display: none;">
+        <div class="loader-spinner"></div>
+        <p id="loaderText">جاري المعالجة...</p>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const MAX_FILE_SIZE_MB = 50;
+
+        const state = {
+            pdfDoc: null,
+            pdfBytes: null,
+            fileName: '',
+            pageNum: 1,
+            numPages: 0,
+            scale: 1.2,
+            currentTool: 'select',
+            color: '#2563eb',
+            fontSize: 16,
+            penSize: 5,
+            annotations: {},
+            selectedElement: null,
+            isDrawing: false,
+            currentPath: null,
+            isDraggingText: false,
+            draggedAnnotation: null,
+            draggedElement: null,
+            dragStartX: 0,
+            dragStartY: 0,
+            arabicFont: null,
+            reshaper: null
+        };
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const workspace = document.getElementById('workspace');
+        const fileActions = document.getElementById('fileActions');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const closeFileBtn = document.getElementById('closeFileBtn');
+        const savePdfBtn = document.getElementById('savePdfBtn');
+        const pdfCanvas = document.getElementById('pdfCanvas');
+        const ctx = pdfCanvas.getContext('2d');
+        const drawingCanvas = document.getElementById('drawingCanvas');
+        const drawCtx = drawingCanvas.getContext('2d');
+        const overlayLayer = document.getElementById('overlayLayer');
+        const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loaderText');
+
+        const toolBtns = document.querySelectorAll('.tool-btn');
+        const toolColorInput = document.getElementById('toolColor');
+        const fontSizeSelect = document.getElementById('fontSize');
+        const penSizeSelect = document.getElementById('penSize');
+        const penSizeContainer = document.getElementById('penSizeContainer');
+        const fontSizeContainer = document.getElementById('fontSizeContainer');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const pageNumberInput = document.getElementById('pageNumberInput');
+        const totalPagesDisplay = document.getElementById('totalPagesDisplay');
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const zoomDisplay = document.getElementById('zoomDisplay');
+        const deleteElementBtn = document.getElementById('deleteElementBtn');
+
+        // ============ أدوات مساعدة ============
+
+        function toast(msg, type = 'info') {
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
+        }
+
+        function showLoader(text) {
+            loaderText.textContent = text;
+            loader.style.display = 'flex';
+        }
+        function hideLoader() { loader.style.display = 'none'; }
+
+        function downloadBlob(data, filename, mimeType) {
+            const blob = new Blob([data], { type: mimeType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // ============ معالجة النص العربي ============
+
+        // تهيئة مُعيد تشكيل الحروف العربية (بأمان)
+        function initReshaper() {
+            try {
+                const NS = window.ArabicReshaper;
+                const ReshaperClass = NS?.ArabicReshaper || NS?.default || NS;
+                if (typeof ReshaperClass === 'function') {
+                    state.reshaper = new ReshaperClass({ support_ligatures: true });
+                    return true;
+                }
+                console.warn('ArabicReshaper غير متاح');
+                return false;
+            } catch (e) {
+                console.warn('فشل تهيئة Reshaper:', e);
+                return false;
+            }
+        }
+
+        // خوارزمية Bidi مبسطة: عكس اتجاه النص مع الحفاظ على الكلمات اللاتينية والأرقام
+        function bidiReverse(text) {
+            const RTL_RE = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
+            const LTR_RE = /[A-Za-z0-9\u00C0-\u024F]/;
+
+            const chars = [...text];
+            const runs = [];
+            let current = null;
+
+            chars.forEach(ch => {
+                const isRTL = RTL_RE.test(ch);
+                const isLTR = LTR_RE.test(ch);
+                let type;
+                if (isRTL) type = 'rtl';
+                else if (isLTR) type = 'ltr';
+                else type = current ? current.type : 'rtl';
+
+                if (!current || type !== current.type) {
+                    if (current) runs.push(current);
+                    current = { type, chars: [ch] };
+                } else {
+                    current.chars.push(ch);
+                }
+            });
+            if (current) runs.push(current);
+
+            return runs
+                .reverse()
+                .map(r => r.type === 'ltr' ? r.chars.join('') : r.chars.reverse().join(''))
+                .join('');
+        }
+
+        // تحضير نص للرسم في PDF
+        function prepareTextForPDF(text) {
+            let shaped = text;
+            if (state.reshaper) {
+                try { shaped = state.reshaper.reshape(text); }
+                catch (e) { console.warn('reshape failed:', e); }
+            }
+            return bidiReverse(shaped);
+        }
+
+        // تحميل الخط العربي لـ pdf-lib (مع بدائل)
+        async function loadArabicFont(pdfDoc) {
+            if (state.arabicFont) return state.arabicFont;
+
+            const urls = [
+                '/fonts/Amiri-Regular.ttf',
+                'https://cdn.jsdelivr.net/gh/aliftype/amiri@0.113/Amiri-Regular.ttf',
+                'https://raw.githubusercontent.com/aliftype/amiri/main/fonts/Amiri-Regular.ttf'
+            ];
+
+            for (const url of urls) {
+                try {
+                    const res = await fetch(url, { mode: 'cors' });
+                    if (!res.ok) continue;
+                    const buf = await res.arrayBuffer();
+                    const font = await pdfDoc.embedFont(buf, { subset: true });
+                    state.arabicFont = font;
+                    return font;
+                } catch (e) {
+                    console.warn('فشل تحميل الخط من', url);
+                }
+            }
+            return null;
+        }
+
+        // ============ رفع ومعالجة الملف ============
+
+        async function handleFile(file) {
+            if (file.type !== 'application/pdf') {
+                toast('الرجاء اختيار ملف PDF صالح.', 'error');
+                return;
+            }
+            if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                toast(`حجم الملف كبير جداً (الحد ${MAX_FILE_SIZE_MB} ميجابايت).`, 'error');
+                return;
+            }
+
+            showLoader('جاري فتح وتحليل المستند...');
+            try {
+                state.fileName = file.name;
+                const buffer = await file.arrayBuffer();
+                state.pdfBytes = buffer;
+                
+                const loadingTask = pdfjsLib.getDocument({ data: buffer });
+                state.pdfDoc = await loadingTask.promise;
+                state.numPages = state.pdfDoc.numPages;
+                state.pageNum = 1;
+                state.annotations = {};
+                state.selectedElement = null;
+                state.arabicFont = null;
+                deleteElementBtn.setAttribute('disabled', 'true');
+
+                fileNameDisplay.textContent = state.fileName;
+                fileNameDisplay.title = state.fileName;
+                totalPagesDisplay.textContent = state.numPages;
+                dropZone.style.display = 'none';
+                workspace.style.display = 'flex';
+                fileActions.style.display = 'flex';
+                savePdfBtn.removeAttribute('disabled');
+
+                await renderPage(state.pageNum);
+                toast('تم تحميل الملف بنجاح', 'success');
+            } catch (error) {
+                console.error(error);
+                toast('حدث خطأ أثناء فتح ملف PDF.', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        function closeFile() {
+            if (Object.keys(state.annotations).length > 0) {
+                if (!confirm('لديك تعديلات غير محفوظة. هل تريد إغلاق الملف دون حفظها؟')) return;
+            }
+            state.pdfDoc = null;
+            state.pdfBytes = null;
+            state.fileName = '';
+            state.annotations = {};
+            state.selectedElement = null;
+            state.arabicFont = null;
+            dropZone.style.display = 'flex';
+            workspace.style.display = 'none';
+            fileActions.style.display = 'none';
+            savePdfBtn.setAttribute('disabled', 'true');
+            deleteElementBtn.setAttribute('disabled', 'true');
+        }
+
+        // ============ عرض الصفحة ============
+
+        async function renderPage(pageNum) {
+            showLoader('جاري العرض...');
+            try {
+                const page = await state.pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: state.scale });
+                const outputScale = window.devicePixelRatio || 1;
+
+                pdfCanvas.width = Math.floor(viewport.width * outputScale);
+                pdfCanvas.height = Math.floor(viewport.height * outputScale);
+                pdfCanvas.style.width = Math.floor(viewport.width) + 'px';
+                pdfCanvas.style.height = Math.floor(viewport.height) + 'px';
+
+                drawingCanvas.width = pdfCanvas.width;
+                drawingCanvas.height = pdfCanvas.height;
+                drawingCanvas.style.width = pdfCanvas.style.width;
+                drawingCanvas.style.height = pdfCanvas.style.height;
+
+                overlayLayer.style.width = Math.floor(viewport.width) + 'px';
+                overlayLayer.style.height = Math.floor(viewport.height) + 'px';
+
+                const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+                await page.render({ canvasContext: ctx, viewport: viewport, transform: transform }).promise;
+
+                pageNumberInput.value = pageNum;
+                zoomDisplay.textContent = `${Math.round(state.scale * 100)}%`;
+                state.selectedElement = null;
+                deleteElementBtn.setAttribute('disabled', 'true');
+
+                renderAnnotations();
+            } catch (error) {
+                console.error(error);
+                toast('خطأ في عرض الصفحة', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // ============ إضافة النصوص ============
+
+        function handleOverlayClick(e) {
+            if (state.currentTool !== 'text') return;
+            if (e.target !== overlayLayer) return;
+
+            const rect = overlayLayer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            addTextAnnotation(x, y, '');
+        }
+
+        function addTextAnnotation(x, y, textContent) {
+            if (!state.annotations[state.pageNum]) state.annotations[state.pageNum] = [];
+            const annotation = {
+                type: 'text',
+                x: x / state.scale,
+                y: y / state.scale,
+                text: textContent,
+                color: state.color,
+                fontSize: state.fontSize
+            };
+            state.annotations[state.pageNum].push(annotation);
+            renderAnnotations();
+            // تركيز تلقائي على النص المُضاف
+            setTimeout(() => {
+                const inputs = overlayLayer.querySelectorAll('.draggable-text input');
+                if (inputs.length) inputs[inputs.length - 1].focus();
+            }, 50);
+        }
+
+        // ============ الرسم الحر ============
+
+        function startDrawing(e) {
+            if (state.currentTool !== 'draw' && state.currentTool !== 'highlight') return;
+            state.isDrawing = true;
+            const rect = drawingCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / state.scale;
+            const y = (e.clientY - rect.top) / state.scale;
+            state.currentPath = {
+                type: state.currentTool,
+                color: state.color,
+                size: state.penSize,
+                points: [{ x, y }]
+            };
+        }
+
+        function draw(e) {
+            if (!state.isDrawing || !state.currentPath) return;
+            const rect = drawingCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / state.scale;
+            const y = (e.clientY - rect.top) / state.scale;
+            state.currentPath.points.push({ x, y });
+            redrawCanvasDrawings();
+        }
+
+        function stopDrawing() {
+            if (!state.isDrawing) return;
+            state.isDrawing = false;
+            if (state.currentPath && state.currentPath.points.length > 1) {
+                if (!state.annotations[state.pageNum]) state.annotations[state.pageNum] = [];
+                state.annotations[state.pageNum].push(state.currentPath);
+            }
+            state.currentPath = null;
+            renderAnnotations();
+        }
+
+        function redrawCanvasDrawings() {
+            drawCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            const outputScale = window.devicePixelRatio || 1;
+            drawCtx.save();
+            drawCtx.scale(outputScale, outputScale);
+
+            const currentAnnots = state.annotations[state.pageNum] || [];
+            
+            [...currentAnnots, state.currentPath].forEach(annot => {
+                if (!annot || (annot.type !== 'draw' && annot.type !== 'highlight')) return;
+                if (!annot.points || annot.points.length < 2) return;
+
+                drawCtx.beginPath();
+                drawCtx.strokeStyle = annot.color;
+                drawCtx.lineWidth = annot.size * state.scale;
+                drawCtx.lineCap = 'round';
+                drawCtx.lineJoin = 'round';
+                drawCtx.globalAlpha = annot.type === 'highlight' ? 0.4 : 1.0;
+
+                annot.points.forEach((pt, idx) => {
+                    const sx = pt.x * state.scale;
+                    const sy = pt.y * state.scale;
+                    if (idx === 0) drawCtx.moveTo(sx, sy);
+                    else drawCtx.lineTo(sx, sy);
+                });
+                drawCtx.stroke();
+                drawCtx.closePath();
+            });
+            drawCtx.restore();
+        }
+
+        // ============ عرض التعديلات ============
+
+        function renderAnnotations() {
+            overlayLayer.innerHTML = '';
+            redrawCanvasDrawings();
+
+            const currentAnnots = state.annotations[state.pageNum] || [];
+
+            currentAnnots.forEach((annot, index) => {
+                if (annot.type !== 'text') return;
+
+                const el = document.createElement('div');
+                el.className = 'draggable-text';
+                el.style.left = `${annot.x * state.scale}px`;
+                el.style.top = `${annot.y * state.scale}px`;
+                el.style.color = annot.color;
+                el.style.fontSize = `${annot.fontSize * state.scale}px`;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = annot.text;
+                input.placeholder = 'اكتب هنا...';
+                input.style.color = annot.color;
+                input.style.fontSize = `${annot.fontSize * state.scale}px`;
+
+                input.addEventListener('input', (e) => { annot.text = e.target.value; });
+
+                input.addEventListener('focus', () => {
+                    state.selectedElement = { annot, index };
+                    deleteElementBtn.removeAttribute('disabled');
+                });
+
+                const startDrag = (clientX, clientY) => {
+                    state.isDraggingText = true;
+                    state.draggedAnnotation = annot;
+                    state.draggedElement = el;
+                    state.dragStartX = clientX - (annot.x * state.scale);
+                    state.dragStartY = clientY - (annot.y * state.scale);
+                    state.selectedElement = { annot, index };
+                    deleteElementBtn.removeAttribute('disabled');
+                    el.style.opacity = '0.85';
+                };
+
+                // السحب من حافة العنصر فقط (وليس من داخل الحقل)
+                el.addEventListener('mousedown', (e) => {
+                    if (e.target === input) return; // لا تتدخل في تحرير النص
+                    startDrag(e.clientX, e.clientY);
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+
+                el.addEventListener('touchstart', (e) => {
+                    if (e.target === input) return;
+                    if (e.touches.length === 1) {
+                        startDrag(e.touches[0].clientX, e.touches[0].clientY);
+                        e.stopPropagation();
+                    }
+                }, { passive: true });
+
+                overlayLayer.appendChild(el);
+            });
+        }
+
+        // السحب العام
+        function onDragMove(clientX, clientY) {
+            if (!state.isDraggingText || !state.draggedAnnotation) return;
+            const newX = Math.max(0, (clientX - state.dragStartX) / state.scale);
+            const newY = Math.max(0, (clientY - state.dragStartY) / state.scale);
+            state.draggedAnnotation.x = newX;
+            state.draggedAnnotation.y = newY;
+            // تحديث سريع للعنصر المسحوب فقط (بدون إعادة بناء كامل)
+            if (state.draggedElement) {
+                state.draggedElement.style.left = `${newX * state.scale}px`;
+                state.draggedElement.style.top = `${newY * state.scale}px`;
+            }
+        }
+
+        function onDragEnd() {
+            if (state.draggedElement) state.draggedElement.style.opacity = '1';
+            state.isDraggingText = false;
+            state.draggedAnnotation = null;
+            state.draggedElement = null;
+        }
+
+        window.addEventListener('mousemove', (e) => onDragMove(e.clientX, e.clientY));
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+        window.addEventListener('mouseup', onDragEnd);
+        window.addEventListener('touchend', onDragEnd);
+
+        function deleteSelectedElement() {
+            if (!state.selectedElement) return;
+            const { index } = state.selectedElement;
+            if (state.annotations[state.pageNum]) {
+                state.annotations[state.pageNum].splice(index, 1);
+            }
+            state.selectedElement = null;
+            deleteElementBtn.setAttribute('disabled', 'true');
+            renderAnnotations();
+        }
+
+        // ============ حفظ وتصدير PDF ============
+
+        async function saveAndExportPDF() {
+            if (!state.pdfBytes) return;
+            showLoader('جاري تصدير ملف PDF...');
+            try {
+                const { PDFDocument, rgb } = PDFLib;
+                const pdfDoc = await PDFDocument.load(state.pdfBytes);
+                const pages = pdfDoc.getPages();
+
+                // تحميل الخط العربي
+                const arabicFont = await loadArabicFont(pdfDoc);
+                if (!arabicFont) {
+                    toast('تعذّر تحميل الخط العربي؛ قد لا يظهر النص العربي بشكل صحيح.', 'error');
+                }
+
+                for (const pageNumStr in state.annotations) {
+                    const pageIndex = parseInt(pageNumStr) - 1;
+                    const pageAnnots = state.annotations[pageNumStr];
+                    if (!pages[pageIndex]) continue;
+                    const page = pages[pageIndex];
+                    const { height } = page.getSize();
+
+                    for (const annot of pageAnnots) {
+                        if (annot.type === 'text' && annot.text.trim() !== '') {
+                            const hexColor = annot.color.replace('#', '');
+                            const r = parseInt(hexColor.substring(0, 2), 16) / 255;
+                            const g = parseInt(hexColor.substring(2, 4), 16) / 255;
+                            const b = parseInt(hexColor.substring(4, 6), 16) / 255;
+
+                            const text = prepareTextForPDF(annot.text);
+                            const pdfX = annot.x;
+                            const pdfY = height - annot.y - (annot.fontSize * 1.2);
+
+                            page.drawText(text, {
+                                x: pdfX,
+                                y: pdfY,
+                                size: annot.fontSize,
+                                color: rgb(r, g, b),
+                                font: arabicFont || undefined,
+                            });
+                        } else if ((annot.type === 'draw' || annot.type === 'highlight') && annot.points && annot.points.length >= 2) {
+                            const hexColor = annot.color.replace('#', '');
+                            const r = parseInt(hexColor.substring(0, 2), 16) / 255;
+                            const g = parseInt(hexColor.substring(2, 4), 16) / 255;
+                            const b = parseInt(hexColor.substring(4, 6), 16) / 255;
+                            const opacity = annot.type === 'highlight' ? 0.4 : 1.0;
+
+                            for (let i = 0; i < annot.points.length - 1; i++) {
+                                const p1 = annot.points[i];
+                                const p2 = annot.points[i + 1];
+                                page.drawLine({
+                                    start: { x: p1.x, y: height - p1.y },
+                                    end: { x: p2.x, y: height - p2.y },
+                                    thickness: annot.size,
+                                    color: rgb(r, g, b),
+                                    opacity: opacity,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                const modifiedPdfBytes = await pdfDoc.save();
+                downloadBlob(modifiedPdfBytes, `modified_${state.fileName}`, 'application/pdf');
+                toast('تم حفظ الملف بنجاح', 'success');
+            } catch (error) {
+                console.error(error);
+                toast('حدث خطأ أثناء تصدير ملف PDF.', 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // ============ الأحداث ============
+
+        function updateToolLayersState() {
+            overlayLayer.classList.remove('active-text');
+            drawingCanvas.classList.remove('active-draw');
+            if (state.currentTool === 'text') overlayLayer.classList.add('active-text');
+            else if (state.currentTool === 'draw' || state.currentTool === 'highlight') drawingCanvas.classList.add('active-draw');
+        }
+
+        function initEventListeners() {
+            dropZone.addEventListener('dragover', (e) => e.preventDefault());
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) handleFile(e.target.files[0]);
+            });
+
+            closeFileBtn.addEventListener('click', closeFile);
+            savePdfBtn.addEventListener('click', saveAndExportPDF);
+
+            prevPageBtn.addEventListener('click', () => {
+                if (state.pageNum > 1) { state.pageNum--; renderPage(state.pageNum); }
+            });
+            nextPageBtn.addEventListener('click', () => {
+                if (state.pageNum < state.numPages) { state.pageNum++; renderPage(state.pageNum); }
+            });
+
+            pageNumberInput.addEventListener('change', (e) => {
+                const val = parseInt(e.target.value);
+                if (val >= 1 && val <= state.numPages) { state.pageNum = val; renderPage(state.pageNum); }
+                else { e.target.value = state.pageNum; }
+            });
+
+            zoomInBtn.addEventListener('click', () => {
+                state.scale = Math.min(state.scale + 0.2, 3.0);
+                renderPage(state.pageNum);
+            });
+            zoomOutBtn.addEventListener('click', () => {
+                state.scale = Math.max(state.scale - 0.2, 0.5);
+                renderPage(state.pageNum);
+            });
+
+            toolBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    toolBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.currentTool = btn.dataset.tool;
+                    updateToolLayersState();
+
+                    if (state.currentTool === 'text') {
+                        fontSizeContainer.style.display = 'flex';
+                        penSizeContainer.style.display = 'none';
+                    } else if (state.currentTool === 'draw' || state.currentTool === 'highlight') {
+                        fontSizeContainer.style.display = 'none';
+                        penSizeContainer.style.display = 'flex';
+                    } else {
+                        fontSizeContainer.style.display = 'none';
+                        penSizeContainer.style.display = 'none';
+                    }
+                });
+            });
+
+            toolColorInput.addEventListener('input', (e) => state.color = e.target.value);
+            fontSizeSelect.addEventListener('change', (e) => state.fontSize = parseInt(e.target.value));
+            penSizeSelect.addEventListener('change', (e) => state.penSize = parseInt(e.target.value));
+
+            overlayLayer.addEventListener('click', handleOverlayClick);
+            
+            drawingCanvas.addEventListener('mousedown', startDrawing);
+            drawingCanvas.addEventListener('mousemove', draw);
+            drawingCanvas.addEventListener('mouseup', stopDrawing);
+            drawingCanvas.addEventListener('mouseleave', stopDrawing);
+
+            drawingCanvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    startDrawing({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            drawingCanvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1) {
+                    draw({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            drawingCanvas.addEventListener('touchend', stopDrawing);
+
+            deleteElementBtn.addEventListener('click', deleteSelectedElement);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initReshaper();
+            initEventListeners();
+        });
+
+        // تسجيل Service Worker (PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW فشل:', e));
+            });
+        }
+    </script>
+</body>
+</html>
